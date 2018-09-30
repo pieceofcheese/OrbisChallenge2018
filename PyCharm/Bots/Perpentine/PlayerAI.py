@@ -14,57 +14,6 @@ def getDistance(p1, p2):
     y = y2 - y1
     return math.sqrt(x*x + y*y)
 
-def get_closest_point_from(world, source, condition):
-    """
-    Returns the closest point from a given point given a predicate.
-
-    :param source: point of interest.
-    :param condition: specified predicate.
-    :return: closest point from source that satisfies condition.
-    :rtype: tuple
-    """
-    queue = Queue()
-    visited = set()
-    queue.add(source)
-    visited.add(source)
-
-    while not (queue.is_empty()):
-        cursor = queue.poll()
-        neighbours = world.get_neighbours(cursor)
-
-        for direction in Direction.ORDERED_DIRECTIONS:
-            neighbour = neighbours[direction]
-            if not ((neighbour in visited) or world.is_wall(neighbour)):
-                queue.add(neighbour)
-                visited.add(neighbour)
-
-        if condition(cursor):
-            return cursor
-
-    return None
-
-def getClosestFriendlyTile(world, point, excluding_points):
-    """
-    Returns the closest tile that is a part of friendly territory.
-
-    :param point: point of interest
-    :param excluding_points: collection of points to exclude in search.
-    :return: closest friendly tile from point.
-    :rtype: Tile
-    """
-    if not world.is_within_bounds(point):
-        print("not in bounds")
-        return None
-    target = get_closest_point_from(world, point, lambda p: world.position_to_tile_map[p].is_friendly and (
-                (not excluding_points) or (p not in excluding_points)))
-    print("closest friendly")
-    print(target)
-    if target:
-        return world.position_to_tile_map[target]
-    return None
-
-
-
 class PlayerAI:
 
     def __init__(self):
@@ -78,6 +27,8 @@ class PlayerAI:
         self.closestEnemyLastDistance = 9999
         self.enemyTarget = None
         self.prevEnemyTarget = None
+        self.prevFriendlySquare = None
+        self.prevprevFriendlySquare = None
 
 
 
@@ -111,6 +62,10 @@ class PlayerAI:
             self.prevEnemyTarget = None
             return
 
+        if len(friendly_unit.body) == 0:
+            self.prevprevFriendlySquare = self.prevFriendlySquare
+            self.prevFriendlySquare = friendly_unit.position
+
         # if enemy is threatening us set them as target
         # else set closest as target and track
         # else find closest and go to that
@@ -134,12 +89,19 @@ class PlayerAI:
                 self.closestEnemyLastDistance = 9999
                 self.enemyTarget = None
                 self.prevEnemyTarget = None
+                self.prevprevFriendlySquare = None
+                self.homeTarget = None
             else:
                 self.kill = False
                 self.returnHome = True
                 if not self.homeTarget:
-                    self.homeTarget = world.util.get_closest_friendly_territory_from(friendly_unit.position, friendly_unit.body).position
+                    if self.prevFriendlySquare:
+                        print(self.prevFriendlySquare)
+                        self.homeTarget = self.prevprevFriendlySquare
+                    else:
+                        self.homeTarget = world.util.get_closest_friendly_territory_from(friendly_unit.position, friendly_unit.body).position
                 target = self.homeTarget
+                print(target)
                 next_move = world.path.get_shortest_path(friendly_unit.position, target, friendly_unit.snake)[0]
                 friendly_unit.move(next_move)
                 return
